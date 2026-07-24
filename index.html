@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>進路コンパス — 決めなくていい進路相談</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --sub: #6b6b6b;
+    --accent: #2563eb;
+    --accent-soft: #eaf0fe;
+    --border: #e2e2e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --card: #222327;
+      --text: #f0f0f0;
+      --sub: #9a9a9a;
+      --accent: #5b8dfb;
+      --accent-soft: #1f2a44;
+      --border: #34353a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 80px;
+    line-height: 1.6;
+  }
+  main { width: 100%; max-width: 560px; }
+  h1 { text-align: center; font-size: 24px; margin: 0 0 4px; }
+  .tagline { text-align: center; color: var(--sub); font-size: 14px; margin-bottom: 24px; }
+
+  .progress-wrap { margin-bottom: 20px; }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width .25s ease; }
+  .progress-label { font-size: 13px; color: var(--sub); margin-top: 6px; text-align: right; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 20px;
+  }
+  .q-text { font-size: 19px; font-weight: 600; margin: 0 0 18px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn {
+    text-align: left;
+    font-size: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .opt-btn:active, .opt-btn.selected { border-color: var(--accent); background: var(--accent-soft); }
+
+  .nav-row { display: flex; justify-content: space-between; margin-top: 18px; }
+  .back-btn {
+    font-size: 14px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 8px 4px;
+  }
+  .restart-btn {
+    font-size: 15px; font-weight: 600; color: white; background: var(--accent);
+    border: none; border-radius: 10px; padding: 12px 18px; cursor: pointer; margin-top: 24px;
+  }
+
+  .result-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+  .result-sub { color: var(--accent); font-size: 15px; margin-bottom: 16px; }
+  .result-block { margin-top: 18px; }
+  .result-block h3 { font-size: 15px; margin: 0 0 6px; color: var(--sub); font-weight: 600; }
+  .result-block p { margin: 0; font-size: 16px; }
+  .caution {
+    background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; margin-top: 6px; font-size: 14px;
+  }
+  .hold-notice {
+    margin-top: 22px; padding: 16px; border-radius: 12px; border: 1.5px dashed var(--accent); font-size: 15px;
+  }
+  .second-cand { color: var(--sub); font-size: 14px; margin-top: 4px; }
+
+  #app { min-height: 320px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>進路コンパス</h1>
+  <div class="tagline">8つの質問に答えるだけ。答えを決めつけず、今のあなたに合う進路の「候補」を一緒に整理します。</div>
+  <div id="app"></div>
+</main>
+
+<script>
+// ---------- データ定義 ----------
+
+// 価値観5軸: 各質問は -2〜+2 のスコアを持つ4択
+const AXES = ['freedom', 'solo', 'change', 'speed', 'meaning'];
+
+const QUESTIONS = [
+  {
+    key: 'freedom',
+    text: '働き方について、正直どちらの感覚が強い？',
+    options: [
+      { label: 'かなり自由に、自分のペースでやりたい', value: 2 },
+      { label: 'できれば自由な方に近いほうがいい', value: 1 },
+      { label: 'ある程度決まったレールのほうが安心する', value: -1 },
+      { label: 'しっかり守られた環境で安定したい', value: -2 },
+    ],
+  },
+  {
+    key: 'solo',
+    text: '仕事の進め方、どちらが自分に合う？',
+    options: [
+      { label: '一人でじっくり集中したい', value: 2 },
+      { label: '少人数のチームで密に関わりたい', value: 1 },
+      { label: 'いろんな人と関わるほうが楽しい', value: -1 },
+      { label: '大人数のチームやコミュニティが好き', value: -2 },
+    ],
+  },
+  {
+    key: 'change',
+    text: '毎日同じような作業をコツコツ続けるのは？',
+    options: [
+      { label: '得意、むしろ安心する', value: -2 },
+      { label: 'まあまあできる', value: -1 },
+      { label: '正直しんどい、飽きてしまう', value: 1 },
+      { label: '無理、新しい刺激がないとつらい', value: 2 },
+    ],
+  },
+  {
+    key: 'speed',
+    text: '結果が出るまで、どれくらい待てる？',
+    options: [
+      { label: 'すぐ結果がほしい（数ヶ月以内）', value: 2 },
+      { label: '1年くらいなら', value: 1 },
+      { label: '数年スパンでも大丈夫', value: -1 },
+      { label: '10年計画くらい平気', value: -2 },
+    ],
+  },
+  {
+    key: 'meaning',
+    text: '仕事を選ぶとき、何が一番効いてくる？',
+    options: [
+      { label: '収入や生活の安定が最優先', value: -2 },
+      { label: 'ある程度の収入は必要', value: -1 },
+      { label: '自分がやってて意味を感じるかが大事', value: 1 },
+      { label: '社会や誰かへのインパクトが一番大事', value: 2 },
+    ],
+  },
+];
+
+const CONSTRAINTS = [
+  {
+    key: 'money',
+    text: '経済的な余裕は今どれくらいある？',
+    options: [
+      { label: '今すぐ収入が必要', value: 'urgent' },
+      { label: '数ヶ月分の猶予はある', value: 'months' },
+      { label: '1年以上の猶予がある', value: 'year' },
+    ],
+  },
+  {
+    key: 'cert',
+    text: '資格や専門知識は今持ってる？',
+    options: [
+      { label: 'すでに持っている', value: 'have' },
+      { label: 'これから取る予定・勉強中', value: 'planning' },
+      { label: '特にない', value: 'none' },
+    ],
+  },
+  {
+    key: 'location',
+    text: '今いる場所にどれくらい縛られてる？',
+    options: [
+      { label: '家族や持ち家などでかなり縛られている', value: 'fixed' },
+      { label: 'まあまあ自由に動ける', value: 'flex' },
+      { label: 'どこでも動ける', value: 'free' },
+    ],
+  },
+];
+
+// 進路パス: vector は [freedom, solo, change, speed, meaning] の -2〜2
+const PATHS = [
+  {
+    id: 'company',
+    name: '会社員（安定重視）',
+    oneLiner: '守られた環境の中で、着実に積み上げていくタイプ',
+    vector: [-2, -1, -2, -1, -1],
+    penalty: () => 0,
+    caution: null,
+  },
+  {
+    id: 'startup',
+    name: 'スタートアップ・ベンチャー',
+    oneLiner: '変化の速い環境で、裁量を持って動きたいタイプ',
+    vector: [1, 0, 2, 1, 1],
+    penalty: (c) => (c.money === 'urgent' ? 1.2 : 0),
+    caution: (c) => c.money === 'urgent'
+      ? '収入が不安定になりやすい時期があるので、当面の生活費をどう確保するかは先に考えておきたいところ。'
+      : null,
+  },
+  {
+    id: 'freelance',
+    name: 'フリーランス・個人開発／クリエイター',
+    oneLiner: '自分のペースで、自分の名前で仕事をしていくタイプ',
+    vector: [2, 2, 1, 0, 0],
+    penalty: (c) => (c.money === 'urgent' ? 1.5 : 0),
+    caution: (c) => c.money === 'urgent'
+      ? '軌道に乗るまで収入が不安定になりやすい働き方。並行して収入源を確保しておくと安心。'
+      : null,
+  },
+  {
+    id: 'gradschool',
+    name: '大学院・研究／資格専門職',
+    oneLiner: 'じっくり時間をかけて専門性を積む、遠回りに見えて着実なタイプ',
+    vector: [-1, 1, -1, -2, 1],
+    penalty: (c) => (c.money === 'urgent' ? 1.5 : 0) + (c.cert === 'none' ? 0.5 : 0),
+    caution: (c) => c.money === 'urgent'
+      ? '専門性を積むには時間がかかる分、その間の生活費・学費をどう確保するかが最初のハードル。'
+      : null,
+  },
+  {
+    id: 'rural',
+    name: '地方移住・スローライフ型',
+    oneLiner: '生活のペースそのものを見直して、無理のない環境を選ぶタイプ',
+    vector: [1, 1, -1, -2, -1],
+    penalty: (c) => (c.location === 'fixed' ? 1.5 : 0),
+    caution: (c) => c.location === 'fixed'
+      ? '今の場所に縛りがある分、実現には家族との相談や段階的な準備が必要になりそう。'
+      : null,
+  },
+  {
+    id: 'founder',
+    name: '起業（ゼロから立ち上げる）',
+    oneLiner: 'リスクを取ってでも、自分で仕組みごと作りたいタイプ',
+    vector: [2, 0, 2, 2, 2],
+    penalty: (c) => (c.money === 'urgent' ? 2 : 0),
+    caution: (c) => c.money === 'urgent'
+      ? 'リスクが一番大きい選択肢。今すぐ収入が必要な状態から始めるのはかなり厳しいので、時期を分けて考えたほうがよさそう。'
+      : null,
+  },
+  {
+    id: 'sabbatical',
+    name: '副業から探る（まだ本業は決めない）',
+    oneLiner: '今すぐ一本に絞らず、小さく試しながら見極めるタイプ',
+    vector: [0, 0, 0, 0, 0],
+    penalty: () => 0,
+    caution: null,
+  },
+];
+
+// ---------- 状態 ----------
+const ALL_Q = [...QUESTIONS, ...CONSTRAINTS];
+let step = 0;
+const answers = {}; // key -> {value, label}
+
+const app = document.getElementById('app');
+
+function render() {
+  if (step < ALL_Q.length) {
+    renderQuestion(ALL_Q[step]);
+  } else {
+    renderResult();
+  }
+}
+
+function renderQuestion(q) {
+  const total = ALL_Q.length;
+  const pct = Math.round((step / total) * 100);
+  app.innerHTML = `
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label">${step + 1} / ${total}</div>
+    </div>
+    <div class="card">
+      <p class="q-text">${escapeHtml(q.text)}</p>
+      <div class="options">
+        ${q.options.map((o, i) => `<button class="opt-btn" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
+      </div>
+      <div class="nav-row">
+        ${step > 0 ? '<button class="back-btn" id="backBtn">← 前の質問に戻る</button>' : '<span></span>'}
+      </div>
+    </div>
+  `;
+  app.querySelectorAll('.opt-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const opt = q.options[Number(btn.dataset.i)];
+      answers[q.key] = opt;
+      btn.classList.add('selected');
+      setTimeout(() => { step += 1; render(); }, 180);
+    });
+  });
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) backBtn.addEventListener('click', () => { step -= 1; render(); });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderResult() {
+  const userVec = AXES.map((k) => answers[k].value);
+  const constraints = {
+    money: answers.money.value,
+    cert: answers.cert.value,
+    location: answers.location.value,
+  };
+
+  const scored = PATHS.map((p) => {
+    const dist = Math.sqrt(p.vector.reduce((sum, v, i) => sum + (v - userVec[i]) ** 2, 0));
+    const total = dist + p.penalty(constraints);
+    return { ...p, dist: total };
+  }).sort((a, b) => a.dist - b.dist);
+
+  const best = scored[0];
+  const second = scored[1];
+  const gapClose = (second.dist - best.dist) < 1.2;
+  const bestIsFar = best.dist > 3.5;
+
+  // 一番マッチした軸(ユーザーとpathの差が小さい2軸)を、ユーザー自身の回答文言で説明する
+  const axisDiffs = AXES.map((k, i) => ({
+    key: k,
+    diff: Math.abs(best.vector[i] - userVec[i]),
+    label: answers[k].label,
+  })).sort((a, b) => a.diff - b.diff);
+  const topReasons = axisDiffs.slice(0, 2).map((a) => `「${a.label}」`).join('と');
+
+  const cautionText = best.caution ? best.caution(constraints) : null;
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="result-sub">今のあなたに近い進路の候補</div>
+      <h2 class="result-title">${escapeHtml(best.name)}</h2>
+      <p>${escapeHtml(best.oneLiner)}</p>
+
+      <div class="result-block">
+        <h3>なぜこの候補？</h3>
+        <p>あなたが${topReasons}と答えたことが、この進路の傾向とよく合っています。</p>
+      </div>
+
+      ${cautionText ? `
+      <div class="result-block">
+        <h3>先に知っておきたいこと</h3>
+        <div class="caution">${escapeHtml(cautionText)}</div>
+      </div>` : ''}
+
+      <div class="result-block">
+        <h3>次点の候補</h3>
+        <p class="second-cand">${escapeHtml(second.name)} — ${escapeHtml(second.oneLiner)}</p>
+      </div>
+
+      ${(gapClose || bestIsFar) ? `
+      <div class="hold-notice">
+        ${gapClose
+          ? `実は「${escapeHtml(best.name)}」と「${escapeHtml(second.name)}」がほぼ同点でした。今はっきり一つに決めなくても大丈夫。両方を小さく試しながら、合う方に寄せていくのも十分ありな進み方です。`
+          : `どの進路ともそこまで強く一致しませんでした。それは診断の失敗ではなく、今のあなたがまだ既存の型に当てはまらない場所にいるということ。「${escapeHtml(scored.find(p => p.id === 'sabbatical').name)}」のように、決めつけずに小さく試す期間を持つのも立派な選択です。`
+        }
+      </div>` : ''}
+
+      <button class="restart-btn" id="restartBtn">もう一度やってみる</button>
+    </div>
+  `;
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    step = 0;
+    Object.keys(answers).forEach((k) => delete answers[k]);
+    render();
+  });
+}
+
+render();
+</script>
+</body>
+</html>
