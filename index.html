@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>進路コンパス — 決めなくていい進路相談</title>
 <style>
   :root {
@@ -65,6 +65,10 @@
     cursor: pointer;
   }
   .opt-btn:active, .opt-btn.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .opt-btn:focus-visible, .back-btn:focus-visible, .restart-btn:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .q-text:focus { outline: none; }
 
   .nav-row { display: flex; justify-content: space-between; margin-top: 18px; }
   .back-btn {
@@ -265,6 +269,11 @@ const answers = {}; // key -> {value, label}
 const app = document.getElementById('app');
 
 function render() {
+  if (step >= ALL_Q.length) {
+    // 未回答の質問が残っていたら、結果を出さずにそこへ戻す(結果計算が落ちるのを防ぐ)
+    const missing = ALL_Q.findIndex((q) => !answers[q.key]);
+    if (missing !== -1) step = missing;
+  }
   if (step < ALL_Q.length) {
     renderQuestion(ALL_Q[step]);
   } else {
@@ -277,29 +286,33 @@ function renderQuestion(q) {
   const pct = Math.round((step / total) * 100);
   app.innerHTML = `
     <div class="progress-wrap">
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${step}"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="progress-label">${step + 1} / ${total}</div>
     </div>
     <div class="card">
-      <p class="q-text">${escapeHtml(q.text)}</p>
+      <p class="q-text" tabindex="-1">${escapeHtml(q.text)}</p>
       <div class="options">
-        ${q.options.map((o, i) => `<button class="opt-btn" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
+        ${q.options.map((o, i) => `<button class="opt-btn${answers[q.key] === o ? ' selected' : ''}" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
       </div>
       <div class="nav-row">
         ${step > 0 ? '<button class="back-btn" id="backBtn">← 前の質問に戻る</button>' : '<span></span>'}
       </div>
     </div>
   `;
+  let answered = false; // ダブルタップ・連打で2問進んでしまうのを防ぐ
   app.querySelectorAll('.opt-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
       const opt = q.options[Number(btn.dataset.i)];
       answers[q.key] = opt;
       btn.classList.add('selected');
       setTimeout(() => { step += 1; render(); }, 180);
     });
   });
+  app.querySelector('.q-text').focus({ preventScroll: true });
   const backBtn = document.getElementById('backBtn');
-  if (backBtn) backBtn.addEventListener('click', () => { step -= 1; render(); });
+  if (backBtn) backBtn.addEventListener('click', () => { if (answered) return; answered = true; step -= 1; render(); });
 }
 
 function escapeHtml(s) {
@@ -368,6 +381,9 @@ function renderResult() {
       <button class="restart-btn" id="restartBtn">もう一度やってみる</button>
     </div>
   `;
+  const title = app.querySelector('.result-title');
+  title.setAttribute('tabindex', '-1');
+  title.focus({ preventScroll: true });
   document.getElementById('restartBtn').addEventListener('click', () => {
     step = 0;
     Object.keys(answers).forEach((k) => delete answers[k]);
