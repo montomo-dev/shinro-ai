@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="8つの質問に答えるだけで、今のあなたに合う進路の「候補」を整理するルールベースの診断。決めつけず、最初の小さな一歩まで提案します。">
 <title>進路コンパス — 決めなくていい進路相談</title>
 <style>
   :root {
@@ -13,6 +14,7 @@
     --sub: #6b6b6b;
     --accent: #2563eb;
     --accent-soft: #eaf0fe;
+    --on-accent: #ffffff;
     --border: #e2e2e5;
   }
   @media (prefers-color-scheme: dark) {
@@ -23,6 +25,7 @@
       --sub: #9a9a9a;
       --accent: #5b8dfb;
       --accent-soft: #1f2a44;
+      --on-accent: #0b1020;
       --border: #34353a;
     }
   }
@@ -55,6 +58,7 @@
   .q-text { font-size: 19px; font-weight: 600; margin: 0 0 18px; }
   .options { display: flex; flex-direction: column; gap: 10px; }
   .opt-btn {
+    font-family: inherit;
     text-align: left;
     font-size: 16px;
     padding: 14px 16px;
@@ -65,13 +69,19 @@
     cursor: pointer;
   }
   .opt-btn:active, .opt-btn.selected { border-color: var(--accent); background: var(--accent-soft); }
+  @media (hover: hover) { .opt-btn:hover { border-color: var(--accent); } }
+  button:focus-visible, .q-text:focus-visible, .result-title:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .q-text:focus:not(:focus-visible), .result-title:focus:not(:focus-visible) { outline: none; }
+  @media (prefers-reduced-motion: reduce) { .progress-fill { transition: none; } }
 
   .nav-row { display: flex; justify-content: space-between; margin-top: 18px; }
   .back-btn {
-    font-size: 14px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 8px 4px;
+    font-family: inherit; font-size: 14px; color: var(--sub); background: none; border: none; cursor: pointer; padding: 8px 4px;
   }
   .restart-btn {
-    font-size: 15px; font-weight: 600; color: white; background: var(--accent);
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--on-accent); background: var(--accent);
     border: none; border-radius: 10px; padding: 12px 18px; cursor: pointer; margin-top: 24px;
   }
 
@@ -87,6 +97,7 @@
     margin-top: 22px; padding: 16px; border-radius: 12px; border: 1.5px dashed var(--accent); font-size: 15px;
   }
   .second-cand { color: var(--sub); font-size: 14px; margin-top: 4px; }
+  .first-step { border-left: 4px solid var(--accent); padding: 4px 0 4px 12px; font-size: 16px; }
 
   #app { min-height: 320px; }
 </style>
@@ -95,7 +106,7 @@
 <main>
   <h1>進路コンパス</h1>
   <div class="tagline">8つの質問に答えるだけ。答えを決めつけず、今のあなたに合う進路の「候補」を一緒に整理します。</div>
-  <div id="app"></div>
+  <div id="app"><noscript>この診断はJavaScriptを使います。ブラウザの設定で有効にしてください。</noscript></div>
 </main>
 
 <script>
@@ -191,6 +202,7 @@ const CONSTRAINTS = [
 const PATHS = [
   {
     id: 'company',
+    firstStep: '気になる業界を2つ選び、今週中に「社員の1日」が分かる記事か動画を1本ずつ見てみる。',
     name: '会社員（安定重視）',
     oneLiner: '守られた環境の中で、着実に積み上げていくタイプ',
     vector: [-2, -1, -2, -1, -1],
@@ -199,6 +211,7 @@ const PATHS = [
   },
   {
     id: 'startup',
+    firstStep: '求人サイトで気になる会社を3社ブックマークし、募集職種のうち「やってみたい仕事」に印をつける。',
     name: 'スタートアップ・ベンチャー',
     oneLiner: '変化の速い環境で、裁量を持って動きたいタイプ',
     vector: [1, 0, 2, 1, 1],
@@ -209,6 +222,7 @@ const PATHS = [
   },
   {
     id: 'freelance',
+    firstStep: '「自分が人に提供できそうなこと」を紙に5つ書き出し、そのうち1つを小さな成果物にして誰かに見せてみる。',
     name: 'フリーランス・個人開発／クリエイター',
     oneLiner: '自分のペースで、自分の名前で仕事をしていくタイプ',
     vector: [2, 2, 1, 0, 0],
@@ -219,6 +233,7 @@ const PATHS = [
   },
   {
     id: 'gradschool',
+    firstStep: '興味のある分野の研究室や講座を1つ見つけて、公開されている資料や論文の概要を30分だけ読んでみる。',
     name: '大学院・研究／資格専門職',
     oneLiner: 'じっくり時間をかけて専門性を積む、遠回りに見えて着実なタイプ',
     vector: [-1, 1, -1, -2, 1],
@@ -229,6 +244,7 @@ const PATHS = [
   },
   {
     id: 'rural',
+    firstStep: '気になる地域を1つ選び、移住支援ページと「暮らしの様子」の動画を1本ずつ見てみる。',
     name: '地方移住・スローライフ型',
     oneLiner: '生活のペースそのものを見直して、無理のない環境を選ぶタイプ',
     vector: [1, 1, -1, -2, -1],
@@ -239,6 +255,7 @@ const PATHS = [
   },
   {
     id: 'founder',
+    firstStep: '解決したい困りごとを1つ決め、身近な3人に「それ、困ってる？」と聞いてみる。',
     name: '起業（ゼロから立ち上げる）',
     oneLiner: 'リスクを取ってでも、自分で仕組みごと作りたいタイプ',
     vector: [2, 0, 2, 2, 2],
@@ -249,6 +266,7 @@ const PATHS = [
   },
   {
     id: 'sabbatical',
+    firstStep: '週に2時間だけ「試す時間」を予定に入れ、気になる分野を1つ小さく試してみる。',
     name: '副業から探る（まだ本業は決めない）',
     oneLiner: '今すぐ一本に絞らず、小さく試しながら見極めるタイプ',
     vector: [0, 0, 0, 0, 0],
@@ -260,15 +278,22 @@ const PATHS = [
 // ---------- 状態 ----------
 const ALL_Q = [...QUESTIONS, ...CONSTRAINTS];
 let step = 0;
+let locked = false; // 選択後の遷移待ち中は二重タップを無視する
 const answers = {}; // key -> {value, label}
 
 const app = document.getElementById('app');
 
-function render() {
+function render(moveFocus = true) {
+  locked = false;
   if (step < ALL_Q.length) {
     renderQuestion(ALL_Q[step]);
   } else {
     renderResult();
+  }
+  // 画面を書き換えるとフォーカスが失われるので、見出しに移して読み上げ・キーボード操作を引き継ぐ
+  if (moveFocus) {
+    const heading = app.querySelector('.q-text, .result-title');
+    if (heading) heading.focus({ preventScroll: false });
   }
 }
 
@@ -277,13 +302,16 @@ function renderQuestion(q) {
   const pct = Math.round((step / total) * 100);
   app.innerHTML = `
     <div class="progress-wrap">
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-label="進み具合" aria-valuemin="1" aria-valuemax="${total}" aria-valuenow="${step + 1}"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="progress-label">${step + 1} / ${total}</div>
     </div>
     <div class="card">
-      <p class="q-text">${escapeHtml(q.text)}</p>
-      <div class="options">
-        ${q.options.map((o, i) => `<button class="opt-btn" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
+      <p class="q-text" id="qText" tabindex="-1">${escapeHtml(q.text)}</p>
+      <div class="options" role="group" aria-labelledby="qText">
+        ${q.options.map((o, i) => {
+          const chosen = answers[q.key] === o;
+          return `<button class="opt-btn${chosen ? ' selected' : ''}" data-i="${i}" aria-pressed="${chosen}">${escapeHtml(o.label)}</button>`;
+        }).join('')}
       </div>
       <div class="nav-row">
         ${step > 0 ? '<button class="back-btn" id="backBtn">← 前の質問に戻る</button>' : '<span></span>'}
@@ -292,14 +320,16 @@ function renderQuestion(q) {
   `;
   app.querySelectorAll('.opt-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const opt = q.options[Number(btn.dataset.i)];
-      answers[q.key] = opt;
+      if (locked) return;
+      locked = true;
+      answers[q.key] = q.options[Number(btn.dataset.i)];
       btn.classList.add('selected');
+      btn.setAttribute('aria-pressed', 'true');
       setTimeout(() => { step += 1; render(); }, 180);
     });
   });
   const backBtn = document.getElementById('backBtn');
-  if (backBtn) backBtn.addEventListener('click', () => { step -= 1; render(); });
+  if (backBtn) backBtn.addEventListener('click', () => { if (locked) return; step -= 1; render(); });
 }
 
 function escapeHtml(s) {
@@ -332,18 +362,27 @@ function renderResult() {
     label: answers[k].label,
   })).sort((a, b) => a.diff - b.diff);
   const topReasons = axisDiffs.slice(0, 2).map((a) => `「${a.label}」`).join('と');
+  // 「副業から探る」は基準が全軸0なので、軸ごとの一致では説明できない
+  const reasonText = best.id === 'sabbatical'
+    ? 'どれか一つの方向に強く寄った答えではなかったため、今は一本に絞らず小さく試しながら見極める進み方が合いそうです。'
+    : `あなたが${topReasons}と答えたことが、この進路の傾向とよく合っています。`;
 
   const cautionText = best.caution ? best.caution(constraints) : null;
 
   app.innerHTML = `
     <div class="card">
       <div class="result-sub">今のあなたに近い進路の候補</div>
-      <h2 class="result-title">${escapeHtml(best.name)}</h2>
+      <h2 class="result-title" tabindex="-1">${escapeHtml(best.name)}</h2>
       <p>${escapeHtml(best.oneLiner)}</p>
 
       <div class="result-block">
         <h3>なぜこの候補？</h3>
-        <p>あなたが${topReasons}と答えたことが、この進路の傾向とよく合っています。</p>
+        <p>${escapeHtml(reasonText)}</p>
+      </div>
+
+      <div class="result-block">
+        <h3>今週できる、最初の小さな一歩</h3>
+        <p class="first-step">${escapeHtml(best.firstStep)}</p>
       </div>
 
       ${cautionText ? `
@@ -375,7 +414,7 @@ function renderResult() {
   });
 }
 
-render();
+render(false);
 </script>
 </body>
 </html>
