@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>進路コンパス — 決めなくていい進路相談</title>
 <style>
   :root {
@@ -283,15 +283,19 @@ function renderQuestion(q) {
     <div class="card">
       <p class="q-text">${escapeHtml(q.text)}</p>
       <div class="options">
-        ${q.options.map((o, i) => `<button class="opt-btn" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
+        ${q.options.map((o, i) => `<button class="opt-btn${answers[q.key] === o ? ' selected' : ''}" data-i="${i}">${escapeHtml(o.label)}</button>`).join('')}
       </div>
       <div class="nav-row">
         ${step > 0 ? '<button class="back-btn" id="backBtn">← 前の質問に戻る</button>' : '<span></span>'}
       </div>
     </div>
   `;
+  // 遷移待ち(180ms)の間に素早く連打されても、1回しか進まないようにする
+  let locked = false;
   app.querySelectorAll('.opt-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (locked) return;
+      locked = true;
       const opt = q.options[Number(btn.dataset.i)];
       answers[q.key] = opt;
       btn.classList.add('selected');
@@ -299,7 +303,12 @@ function renderQuestion(q) {
     });
   });
   const backBtn = document.getElementById('backBtn');
-  if (backBtn) backBtn.addEventListener('click', () => { step -= 1; render(); });
+  if (backBtn) backBtn.addEventListener('click', () => {
+    if (locked) return;
+    locked = true;
+    step -= 1;
+    render();
+  });
 }
 
 function escapeHtml(s) {
