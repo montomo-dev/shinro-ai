@@ -290,8 +290,12 @@ function renderQuestion(q) {
       </div>
     </div>
   `;
+  let answered = false; // 連打で step が二重に進み、質問が飛ぶのを防ぐ
   app.querySelectorAll('.opt-btn').forEach((btn) => {
+    if (answers[q.key] === q.options[Number(btn.dataset.i)]) btn.classList.add('selected');
     btn.addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
       const opt = q.options[Number(btn.dataset.i)];
       answers[q.key] = opt;
       btn.classList.add('selected');
